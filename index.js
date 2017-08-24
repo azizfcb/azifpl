@@ -1,7 +1,6 @@
 var q = require("q");
 var jsonGroupBy = require("json-groupby")
 var rp = require('request-promise');
-var cheerio = require('cheerio');
 
 var deferred = q.defer();
 var connected = false;
