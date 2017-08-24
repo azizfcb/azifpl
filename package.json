@@ -1,0 +1,28 @@
+{
+  "name": "azifpl",
+  "version": "1.0.0",
+  "description": "A wrapper around the Fantasy Premier League \"Open API\", implementing multiple functionnalities from getting gameweek score, to players values, leagues history and more..",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "keywords": [
+    "fpl",
+    "fantasy",
+    "api",
+    "premier",
+    "league"
+  ],
+  "author": "Azizfcb <aziz50607080@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "json-groupby": "^1.0.2",
+    "q": "latest",
+    "request": "latest",
+    "request-promise": "^4.2.1"
+  }
+}
