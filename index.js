@@ -129,10 +129,6 @@ exports.getGameweekPlayerData = function (playerId, event) {
     return deferred.promise;
 }
 
-exports.getPremierLeagueTeams = function (teamId) {
-
-}
-
 exports.getPremierLeagueTeamPlayers = function (teamId) {
     var url = "https://fantasy.premierleague.com/drf/elements/", arr = [], options = {uri: url, json: true}, newJson = {};
     // GET Request
@@ -179,10 +175,9 @@ exports.getPremierLeagueTeams = function (teamId) {
     return deferred.promise;
 }
 
-exports.fantasyPlayersCount = function (teamId) {
-
-}
-
+//exports.fantasyPlayersCount = function (teamId) {
+//
+//}
 // **************************************************************************************************************************** //
 
 // ************************************************ extra features ************************************************************ //
@@ -206,18 +201,16 @@ exports.getFantasyTeamAverage = function (leagueId) {
     return deferred.promise;
 }
 
-exports.compareTwoTeams = function (teamId1, teamId2) {}
-
 exports.getMaxPoints = function (teamId) {
     var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
     var newJson = {};
     rp(options).then(function (response) {
         newJson.playerId = teamId,
                 newJson.data = {
-                    maxGameweekPoints: Math.max.apply(Math, response.map(function (o) {
+                    maxGameweekPoints: Math.max.apply(Math, response.history.map(function (o) {
                         return o.points;
                     })),
-                    maxBenchedPoints: Math.max.apply(Math, response.map(function (o) {
+                    maxBenchedPoints: Math.max.apply(Math, response.history.map(function (o) {
                         return o.points_on_bench;
                     })),
                 }
@@ -230,38 +223,16 @@ exports.getMaxPoints = function (teamId) {
     return deferred.promise;
 }
 
-exports.chipsPoints = function (teamId) {}
-
-exports.getTotalTransfersCost = function (teamId) {
-    var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
-    var newJson = {};
-    rp(options).then(function (response) {
-        newJson.playerId = teamId;
-        newJson.data = {
-            totalCost: response.history.reduce(function (a, b) {
-                return a.event_transfers_cost + b
-            }, 0),
-        }
-        deferred.resolve(newJson)
-    }, function (error) {
-        console.log('error doing HTTP request to ' + url);
-        deferred.reject(error);
-        console.log(error)
-    })
-    return deferred.promise;
-
-}
-
 exports.getTeamBestandWorstOverallRank = function (teamId) {
     var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
     var newJson = {};
     rp(options).then(function (response) {
         newJson.playerId = teamId;
         newJson.data = {
-            bestOverAllRank: Math.max.apply(Math, response.map(function (o) {
+            bestOverAllRank: Math.min.apply(Math, response.history.map(function (o) {
                 return o.overall_rank;
             })),
-            worstOverAllRank: Math.min.apply(Math, response.map(function (o) {
+            worstOverAllRank: Math.max.apply(Math, response.history.map(function (o) {
                 return o.overall_rank;
             })),
         }
@@ -274,9 +245,30 @@ exports.getTeamBestandWorstOverallRank = function (teamId) {
     return deferred.promise;
 }
 
-exports.getTeamLowestPriceAndexpensiveestPrice = function (teams) {}
-// ------------------------------------------------------------- //
+exports.getTotalTransfersCost = function (teamId) {
+    var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
+    var newJson = {}, sum = 0;
+    rp(options).then(function (response) {
+        newJson.playerId = teamId;
+        response.history.forEach(function (e) {
+            sum = sum + e.event_transfers_cost;
+        });
+        newJson.data = {
+            totalTransferCost: sum
+        };
+        deferred.resolve(newJson)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + url);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+};
 
+//exports.compareTwoTeams = function (teamId1, teamId2) {}
+//
+//exports.chipsPoints = function (teamId) {}
+// ------------------------------------------------------------- //
 
 // --------------------- fantasy leagues -------------------------//
 exports.getLeagueTopTenPlayers = function (leagueId) {
@@ -295,6 +287,5 @@ exports.getLeagueTopTenPlayers = function (leagueId) {
     return deferred.promise;
 }
 // ------------------------------------------------------------- //
-
 
 // ******************************************************************************************************************************** //
