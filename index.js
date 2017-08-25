@@ -228,20 +228,28 @@ exports.getTeamBestandWorstOverallRank = function (teamId) {
     var newJson = {};
     rp(options).then(function (response) {
         newJson.playerId = teamId;
+        var maxValue = Math.min.apply(Math, response.history.map(function (o) {
+            return o.overall_rank;
+        }))
+        var minValue = Math.max.apply(Math, response.history.map(function (o) {
+            return o.overall_rank;
+        }))
+        var maxEvent;
+        response.history.forEach(function (e, i) {
+            if (e.overall_rank === maxValue) {
+                maxEvent = i + 1;
+            }
+        })
         newJson.data = {
-            bestOverAllRank: Math.min.apply(Math, response.history.map(function (o) {
-                return o.overall_rank;
-            })),
-            worstOverAllRank: Math.max.apply(Math, response.history.map(function (o) {
-                return o.overall_rank;
-            })),
+            bestOverAllRank: {Value: maxValue, eventNumber: maxEvent},
+            worstOverAllRank: minValue
         }
         deferred.resolve(newJson)
     }, function (error) {
         console.log('error doing HTTP request to ' + url);
         deferred.reject(error);
         console.log(error)
-    })
+    });
     return deferred.promise;
 }
 
