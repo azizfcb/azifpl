@@ -28,6 +28,7 @@ var teams = {
     19: "West Brom",
     20: "West Ham"
 }
+// **************************************************** Basic features ******************************************************** //
 
 exports.getPlayerLeagues = function (playerId, leagueType) {
     var url = "https://fantasy.premierleague.com/drf/entry/" + playerId, arr = [], options = {uri: url, json: true};
@@ -177,23 +178,16 @@ exports.getPremierLeagueTeams = function (teamId) {
     })
     return deferred.promise;
 }
-// extra features
 
-exports.getLeagueTopTenPlayers = function (leagueId) {
-    var url = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: url, json: true};
-    // GET Request
-    rp(options).then(function (response) {
-        arr = response.standings.results.filter(function (e, i) {
-            return i <= 9;
-        })
-        deferred.resolve(arr)
-    }, function (error) {
-        console.log('error doing HTTP request to ' + url);
-        deferred.reject(error);
-        console.log(error)
-    })
-    return deferred.promise;
+exports.fantasyPlayersCount = function (teamId) {
+
 }
+
+// **************************************************************************************************************************** //
+
+// ************************************************ extra features ************************************************************ //
+
+// --------------------- fantasy teams ------------------------- //
 
 exports.getFantasyTeamAverage = function (leagueId) {
 
@@ -211,3 +205,96 @@ exports.getFantasyTeamAverage = function (leagueId) {
     })
     return deferred.promise;
 }
+
+exports.compareTwoTeams = function (teamId1, teamId2) {}
+
+exports.getMaxPoints = function (teamId) {
+    var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
+    var newJson = {};
+    rp(options).then(function (response) {
+        newJson.playerId = teamId,
+                newJson.data = {
+                    maxGameweekPoints: Math.max.apply(Math, response.map(function (o) {
+                        return o.points;
+                    })),
+                    maxBenchedPoints: Math.max.apply(Math, response.map(function (o) {
+                        return o.points_on_bench;
+                    })),
+                }
+        deferred.resolve(newJson)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + url);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+}
+
+exports.chipsPoints = function (teamId) {}
+
+exports.getTotalTransfersCost = function (teamId) {
+    var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
+    var newJson = {};
+    rp(options).then(function (response) {
+        newJson.playerId = teamId;
+        newJson.data = {
+            totalCost: response.history.reduce(function (a, b) {
+                return a.event_transfers_cost + b
+            }, 0),
+        }
+        deferred.resolve(newJson)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + url);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+
+}
+
+exports.getTeamBestandWorstOverallRank = function (teamId) {
+    var url = "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", arr = [], options = {uri: url, json: true};
+    var newJson = {};
+    rp(options).then(function (response) {
+        newJson.playerId = teamId;
+        newJson.data = {
+            bestOverAllRank: Math.max.apply(Math, response.map(function (o) {
+                return o.overall_rank;
+            })),
+            worstOverAllRank: Math.min.apply(Math, response.map(function (o) {
+                return o.overall_rank;
+            })),
+        }
+        deferred.resolve(newJson)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + url);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+}
+
+exports.getTeamLowestPriceAndexpensiveestPrice = function (teams) {}
+// ------------------------------------------------------------- //
+
+
+// --------------------- fantasy leagues -------------------------//
+exports.getLeagueTopTenPlayers = function (leagueId) {
+    var url = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: url, json: true};
+    // GET Request
+    rp(options).then(function (response) {
+        arr = response.standings.results.filter(function (e, i) {
+            return i <= 9;
+        })
+        deferred.resolve(arr)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + url);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+}
+// ------------------------------------------------------------- //
+
+
+// ******************************************************************************************************************************** //
