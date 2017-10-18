@@ -62,8 +62,8 @@ azifpl.getLeagueTopTenPlayers(238).then(function (res) {
 Take a look at index.js to see what are the available methods.
 
 ## To Do ( In no particular order ) :
-* Compare two fantasy teams against each others
-* Chips used and corresponding event/points
+* Compare two fantasy teams against each others => Done
+* Chips used and corresponding event/points => Done
 * Changing a team name ( Using Login mail and Password )
 * transfer and replace player ( Using Login mail and Password )
 * set Captain/Vice Captain (C/VC) ( Using Login mail and Password )
