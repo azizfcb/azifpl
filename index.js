@@ -1,13 +1,17 @@
 var q = require("q");
-var jsonGroupBy = require("json-groupby")
-var rp = require('request-promise');
-
 var deferred = q.defer();
+
+var jsonGroupBy = require("json-groupby")
+
+var rp = require('request-promise');
+var cookieJar = rp.jar();
+
 var bootstrapStaticUrl = "https://fantasy.premierleague.com/drf/bootstrap-static";
 var dreamTeamUrl = "https://fantasy.premierleague.com/drf/dream-team/";
 var entryUrl = "https://fantasy.premierleague.com/drf/entry/"
 var elementUrl = "https://fantasy.premierleague.com/drf/elements/"
 var playersIconesUrl = "https://platform-static-files.s3.amazonaws.com/premierleague/photos/players/110x140/p"
+var myTeamUrl = "https://fantasy.premierleague.com/drf/my-team/"
 
 var teams = {
     1: "Arsenal",
@@ -33,6 +37,20 @@ var teams = {
 }
 // **************************************************** Basic features ******************************************************** //
 
+// get transfer history
+exports.getTransferHistory = function(teamId){
+    var options = {uri: entryUrl + teamId + "/transfers", json: true};
+    // GET Request
+    rp(options).then(function (response) {
+        deferred.resolve(response.history);
+    }, function (error) {
+        console.log('error doing HTTP request to ' + options.uri);
+        deferred.reject(error);
+        console.log(error)
+
+    })
+    return deferred.promise;
+}
 // leagues that a player is a member of ( classic, h2h, cup )
 exports.getPlayerSubscribedLeagues = function (playerId, leagueType) {
     var options = {uri: entryUrl + playerId, json: true};
@@ -132,7 +150,7 @@ exports.getPremierLeagueTeamPlayers = function (teamId) {
     return deferred.promise;
 }
 
-// get Premeir league details if teamId is not specified, otherwise fetehs all teams details
+// get Premeir league details if teamId is not specified, otherwise fetsh all teams details
 exports.getPremierLeagueTeams = function (teamId) {
     options = {uri: bootstrapStaticUrl, json: true}
     rp(options).then(function (response) {
@@ -287,7 +305,7 @@ exports.getTotalTransfersCost = function (teamId) {
     return deferred.promise;
 };
 
-exports.getLeagueTopTenPlayers = function (leagueId) {
+exports.getClassicLeagueTopTenPlayers = function (leagueId) {
     var url = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: url, json: true};
     // GET Request
     rp(options).then(function (response) {
@@ -303,21 +321,69 @@ exports.getLeagueTopTenPlayers = function (leagueId) {
     return deferred.promise;
 }
 
-// ******************************************************************************************************************************** //
+//get acivated chips, the exact event and the corresponding points
+exports.chipsPoints = function (teamId) {
+    var output = [];
+    var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
 
-// *************************************************** To Do ********************************************************************** // 
-// 
-//exports.TwoTeamsH2H = function (teamId1, teamId2) {}
-//
-//exports.UsedChipsPoints = function (teamId) {}
-//
-// exports.changeTeamName = function (newName, MAIL , PASSWORD) {}
-// 
-// ..... Other utilities requiring login
-// 
-// ******************************************************************************************************************************** //
+    rp(options).then(function (response) {
 
+        history = response.history
+        chips = response.chips
 
+        chips.forEach(function (e, v) {
+            output.push({
+                "chips": e.name,
+                "event": e.event,
+                "points": history.find(x => x.event === e.event).points
+            })
+        })
+        deferred.resolve(output)
+    }, function (error) {
+        console.log('error doing HTTP request to ' + options.uri);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+}
 
+//calculate h2h betweew fantasy players
+exports.TwoTeamsH2H = function (teamId_1,teamId_2) {
+    var output = {};
+    a = 0;
+    b = 0;
+    x = 0
+    var options_1 = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId_1 + "/history", json: true};
+    var options_2 = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId_2 + "/history", json: true};
+
+    rp(options_1).then(function (response) {
+        var playerName_1 = response.entry.name
+        var playerData_1 = response.history
+        rp(options_2).then(function (response) {
+            var playerName_2 = response.entry.name
+            var playerData_2 = response.history
+            max = Math.max(playerData_1[0].event, playerData_2[0].event)
+            playerData_1 = playerData_1.filter(x => x.event >= max)
+            playerData_2 = playerData_2.filter(x => x.event >= max)
+            for (i = 0; i < playerData_1.length; i++) {
+                if (playerData_1[i].points > playerData_2[i].points) a++;
+                else if (playerData_1[i].points < playerData_2[i].points) b++;
+                else x++;
+            }
+            output = {player_1_wins: a, player_2_wins: b, draw: x }
+            deferred.resolve(output)
+        }, function (error) {
+            console.log('error doing HTTP request to ' + options.uri);
+            deferred.reject(error);
+            console.log(error)
+        })
+    }, function (error) {
+        console.log('error doing HTTP request to ' + options.uri);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+
+}
 
 
