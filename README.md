@@ -38,7 +38,9 @@ All you need next is to require the module in your code using:
 var azifpl = require('azifpl');
 ```
 and call its functions in your code.
-Example 1: Get the worst and the best overall rank of a fantasy team
+
+**Example 1
+Get the worst and the best overall rank of a fantasy team:**
 ```
 azifpl.getTeamBestandWorstOverallRank(455312).then(function (res) {
     console.log(res)
@@ -54,8 +56,8 @@ Output:
      worstOverAllRank: { Value: 1857687, eventNumber: 1 } } }
 ```
 
-Example 2:
-get used chips scores/Gameweek activation:
+**Example 2:
+get used chips scores/Gameweek activation:**
 
 ```
 azifpl.chipsPoints(455312).then(function (res) {
