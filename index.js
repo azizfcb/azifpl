@@ -37,6 +37,7 @@ var teams = {
 }
 // **************************************************** Basic features ******************************************************** //
 
+
 // get transfer history
 exports.getTransferHistory = function(teamId){
     var options = {uri: entryUrl + teamId + "/transfers", json: true};
@@ -51,6 +52,7 @@ exports.getTransferHistory = function(teamId){
     })
     return deferred.promise;
 }
+
 // leagues that a player is a member of ( classic, h2h, cup )
 exports.getPlayerSubscribedLeagues = function (playerId, leagueType) {
     var options = {uri: entryUrl + playerId, json: true};
@@ -108,7 +110,6 @@ exports.getGameweekPlayerData = function (playerId, event) {
         console.log('error doing HTTP request to ' + options.uri);
         deferred.reject(error);
         console.log(error)
-
     })
     return deferred.promise;
 }

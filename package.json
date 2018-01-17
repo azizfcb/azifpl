@@ -1,6 +1,6 @@
 {
   "name": "azifpl",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A wrapper around the Fantasy Premier League \"Open API\", implementing multiple functionnalities from getting gameweek score, to players values, leagues history and more..",
   "main": "index.js",
   "scripts": {
