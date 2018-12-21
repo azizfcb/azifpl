@@ -1,11 +1,8 @@
 var q = require("q");
-var deferred = q.defer();
-
 var jsonGroupBy = require("json-groupby")
 
 var rp = require('request-promise');
 var cookieJar = rp.jar();
-
 var bootstrapStaticUrl = "https://fantasy.premierleague.com/drf/bootstrap-static";
 var dreamTeamUrl = "https://fantasy.premierleague.com/drf/dream-team/";
 var entryUrl = "https://fantasy.premierleague.com/drf/entry/"
@@ -39,7 +36,7 @@ var teams = {
 
 
 // get transfer history
-exports.getTransferHistory = function(teamId){
+exports.getTransferHistory = function (teamId) {
     var options = {uri: entryUrl + teamId + "/transfers", json: true};
     // GET Request
     rp(options).then(function (response) {
@@ -182,7 +179,6 @@ exports.getEventDreamTeam = function (event) {
         deferred.reject("event number is not valid!");
     }
     return deferred.promise;
-
 }
 
 // self explanatory
@@ -200,7 +196,6 @@ exports.getEventFixtures = function (event) {
         deferred.reject("event number is not valid!");
     }
     return deferred.promise;
-
 }
 
 // ***************************************************************************************************************************** //
@@ -210,6 +205,7 @@ exports.getEventFixtures = function (event) {
 exports.getFantasyTeamAverage = function (leagueId) {
 
     var options = {uri: entryUrl + leagueId + "/history", json: true};
+    var deferred = q.defer();
     var average = 0;
     rp(options).then(function (response) {
         response.history.forEach(function (e) {
@@ -225,28 +221,12 @@ exports.getFantasyTeamAverage = function (leagueId) {
 }
 
 exports.getMaxPoints = function (teamId) {
+
     var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
-    var newJson = {}, eventA, eventB;
+    var deferred = q.defer();
     rp(options).then(function (response) {
-        newJson.playerId = teamId;
-        var maxGameweekPoints = Math.max.apply(Math, response.history.map(function (o) {
-            return o.points;
-        }));
-        var maxBenchedPoints = Math.max.apply(Math, response.history.map(function (o) {
-            return o.points_on_bench;
-        }));
-        response.history.forEach(function (e, i) {
-            if (e.points === maxGameweekPoints) {
-                eventA = i + 1;
-            } else if (e.points_on_bench === maxBenchedPoints) {
-                eventB = i + 1;
-            }
-        })
-        newJson.data = {
-            maxGameweekPoints: {value: maxGameweekPoints, event: eventA},
-            maxBenchedPoints: {value: maxBenchedPoints, event: eventB},
-        };
-        deferred.resolve(newJson)
+        var data = maxBenchedAndMaxPoints(response.history)
+        deferred.resolve(data)
     }, function (error) {
         console.log('error doing HTTP request to ' + options.uri);
         deferred.reject(error);
@@ -257,6 +237,7 @@ exports.getMaxPoints = function (teamId) {
 
 exports.getTeamBestandWorstOverallRank = function (teamId) {
     var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
+    var deferred = q.defer();
     var newJson = {}, maxEvent, minEvent;
     rp(options).then(function (response) {
         newJson.playerId = teamId;
@@ -286,33 +267,35 @@ exports.getTeamBestandWorstOverallRank = function (teamId) {
     return deferred.promise;
 }
 
+// total transfer cost
+// 100%
 exports.getTotalTransfersCost = function (teamId) {
     var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
-    var newJson = {}, sum = 0;
+    var deferred = q.defer();
     rp(options).then(function (response) {
-        newJson.playerId = teamId;
-        response.history.forEach(function (e) {
-            sum = sum + e.event_transfers_cost;
-        });
-        newJson.data = {
-            totalTransferCost: sum
-        };
-        deferred.resolve(newJson)
+        deferred.resolve(totalTransfercost(response.history))
     }, function (error) {
-        console.log('error doing HTTP request to ' + options.uri);
         deferred.reject(error);
-        console.log(error)
     })
     return deferred.promise;
 };
+// get top 10 players of classic league
+// 100%
+exports.getClassicLeagueTopTenPlayers = function (leagueId, number) {
 
-exports.getClassicLeagueTopTenPlayers = function (leagueId) {
+    var deferred = q.defer();
     var url = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: url, json: true};
     // GET Request
     rp(options).then(function (response) {
-        arr = response.standings.results.filter(function (e, i) {
-            return i <= 9;
-        })
+        var arr = []
+        if (number != undefined) {
+            arr = response.standings.results.filter(function (e, i) {
+                return i <= undefined;
+            })
+        } else {
+            arr = response.standings.results
+        }
+
         deferred.resolve(arr)
     }, function (error) {
         console.log('error doing HTTP request to ' + url);
@@ -323,10 +306,11 @@ exports.getClassicLeagueTopTenPlayers = function (leagueId) {
 }
 
 //get acivated chips, the exact event and the corresponding points
+// 100%
 exports.chipsPoints = function (teamId) {
     var output = [];
     var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
-
+    var deferred = q.defer();
     rp(options).then(function (response) {
 
         history = response.history
@@ -349,29 +333,37 @@ exports.chipsPoints = function (teamId) {
 }
 
 //calculate h2h betweew fantasy players
-exports.TwoTeamsH2H = function (teamId_1,teamId_2) {
+// 100%
+exports.TwoTeamsH2H = function (teamId_1, teamId_2) {
+
+    var deferred = q.defer();
     var output = {};
     a = 0;
     b = 0;
     x = 0
     var options_1 = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId_1 + "/history", json: true};
     var options_2 = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId_2 + "/history", json: true};
-
     rp(options_1).then(function (response) {
         var playerName_1 = response.entry.name
         var playerData_1 = response.history
         rp(options_2).then(function (response) {
             var playerName_2 = response.entry.name
             var playerData_2 = response.history
+
             max = Math.max(playerData_1[0].event, playerData_2[0].event)
+
             playerData_1 = playerData_1.filter(x => x.event >= max)
             playerData_2 = playerData_2.filter(x => x.event >= max)
+
             for (i = 0; i < playerData_1.length; i++) {
-                if (playerData_1[i].points > playerData_2[i].points) a++;
-                else if (playerData_1[i].points < playerData_2[i].points) b++;
-                else x++;
+                if (playerData_1[i].points > playerData_2[i].points)
+                    a++;
+                else if (playerData_1[i].points < playerData_2[i].points)
+                    b++;
+                else
+                    x++;
             }
-            output = {player_1_wins: a, player_2_wins: b, draw: x }
+            output = {player1: {name: playerName_1, wins: a}, player2: {name: playerName_2, wins: b}, draw: x}
             deferred.resolve(output)
         }, function (error) {
             console.log('error doing HTTP request to ' + options.uri);
@@ -384,7 +376,164 @@ exports.TwoTeamsH2H = function (teamId_1,teamId_2) {
         console.log(error)
     })
     return deferred.promise;
-
 }
 
+exports.getCupTeams = function (leagueId) {
+    var deferred = q.defer();
+    var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
+    // GET Request
+    rp(options).then(function (response) {
+        var output = [];
+        var players = response.standings.results
+        var allPromises = [];
+        players.forEach(function (e) {
+            options = {uri: entryUrl + e.entry, json: true}
+            allPromises.push(new Promise(function (resolve, reject) {
+                rp(options).then(function (response) {
+                    var cupData = response.leagues.cup
+                    var x = {
+                        playerId: e.entry,
+                        playerName: response.entry.player_first_name + ' ' + response.entry.player_last_name,
+                        teamName: response.entry.name,
+                        cupRoundsPlayed: {roundsPlayed: cupData.length, playedUntil: cupData.length > 0 ? cupData[cupData.length - 1].event : null},
+                        cupStatus: stillInCup(cupData, e.entry)}
+                    resolve(x)
+                }, function (error) {
+                    reject(error)
+                })
+            }))
+        })
+        console.log(allPromises.length)
+        if (allPromises.length == response.standings.results.length) {
+            Promise.all(allPromises).then(function (values) {
+                deferred.resolve(values)
+            });
+        }
 
+    }, function (error) {
+        deferred.reject(error);
+    })
+    return deferred.promise;
+}
+
+exports.gameweekAverage = function (leagueId) {
+    var deferred = q.defer();
+    options = {uri: bootstrapStaticUrl, json: true};
+    // GET Request
+    rp(options).then(function (response) {
+        var currentEvent = response["current-event"];
+        var average = response.events[currentEvent - 1].average_entry_score;
+        deferred.resolve({
+            currentEvent: currentEvent,
+            average: average
+        })
+    }, function (error) {
+        deferred.reject(error);
+    })
+    return deferred.promise;
+}
+
+exports.highestLowest = function (leagueId) {
+
+
+
+    var deferred = q.defer();
+    var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
+    // GET Request
+    rp(options).then(function (response) {
+
+        var output = [];
+        var players = response.standings.results
+        var allPromises = [];
+        players.forEach(function (e) {
+
+            options = {uri: entryUrl + e.entry, json: true}
+            allPromises.push(new Promise(function (resolve, reject) {
+                getMaxPoints(e.entry).then(function (res) {
+                    res.teamName = e.entry_name
+                    resolve(res)
+                }, function (err) {
+                    resolve(err)
+                })
+            }))
+        })
+        if (allPromises.length == response.standings.results.length) {
+            Promise.all(allPromises).then(function (values) {
+                deferred.resolve(values)
+            });
+        }
+    }, function (error) {
+        deferred.reject(error);
+    })
+    return deferred.promise;
+}
+
+exports.teamStats = function (teamId) {
+    var options = {uri: "https://fantasy.premierleague.com/drf/entry/" + teamId + "/history", json: true};
+    var deferred = q.defer();
+    rp(options).then(function (response) {
+
+        maxMinPoints = maxBenchedAndMaxPoints(response.history)
+        chips = chipsPoints(response.chips, response.history)
+        cupData = stillInCup(response.leagues.cup,teamId)
+        xxxx = totalTransfercost(response.history)
+
+        deferred.resolve({data: {maxMinPoints: maxMinPoints, chips: chips, totalTransfercost: xxxx,cupData:cupData}})
+        
+    }, function (error) {
+        console.log('error doing HTTP request to ' + options.uri);
+        deferred.reject(error);
+        console.log(error)
+    })
+    return deferred.promise;
+}
+
+stillInCup = function (cupData, playerId) {
+    return cupData[cupData.length - 1] != undefined && (cupData[cupData.length - 1].winner == null || cupData[cupData.length - 1].winner == playerId)
+}
+
+maxBenchedAndMaxPoints = function (history) {
+
+    var maxPoints = [history.reduce(function (prev, current) {
+            return (prev.points > current.points) ? prev : current
+        })].map(function (x) {
+        return {value: x.points, event: x.event}
+    })[0]
+    var minPoints = [history.reduce(function (prev, current) {
+            return (prev.points < current.points) ? prev : current
+        })].map(function (x) {
+        return {value: x.points, event: x.event}
+    })[0]
+    var maxBenchedPoints = [history.reduce(function (prev, current) {
+            return (prev.points_on_bench > current.points_on_bench) ? prev : current
+        })].map(function (x) {
+        return {value: x.points_on_bench, event: x.event}
+    })[0]
+
+    return {
+        maxPoints: maxPoints,
+        minPoints: minPoints,
+        maxBenchedPoints: maxBenchedPoints,
+    }
+}
+
+chipsPoints = function (chips, history) {
+
+    var output = []
+    chips.forEach(function (e, v) {
+        output.push({
+            "chips": e.name,
+            "event": e.event,
+            "points": history.find(x => x.event === e.event).points
+        })
+    })
+    return output;
+}
+
+totalTransfercost = function (history) {
+    var sum = 0
+    history.forEach(function (e) {
+        sum = sum + e.event_transfers_cost;
+    });
+    return sum
+}
