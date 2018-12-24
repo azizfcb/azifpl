@@ -9,6 +9,7 @@ var entryUrl = "https://fantasy.premierleague.com/drf/entry/"
 var elementUrl = "https://fantasy.premierleague.com/drf/elements/"
 var playersIconesUrl = "https://platform-static-files.s3.amazonaws.com/premierleague/photos/players/110x140/p"
 var myTeamUrl = "https://fantasy.premierleague.com/drf/my-team/"
+var playersList = require('./players.json')
 
 var teams = {
     1: "Arsenal",
@@ -395,7 +396,7 @@ exports.getCupTeams = function (leagueId) {
                         playerId: e.entry,
                         playerName: response.entry.player_first_name + ' ' + response.entry.player_last_name,
                         teamName: response.entry.name,
-                        cupRoundsPlayed: {roundsPlayed: cupData.length, playedUntil: cupData.length > 0 ? cupData[cupData.length - 1].event : null},
+                        cupRoundsPlayed: {roundsPlayed: cupData.length == 0 ? 0 : cupData[0].event - 16},
                         cupStatus: stillInCup(cupData, e.entry)}
                     resolve(x)
                 }, function (error) {
@@ -475,11 +476,11 @@ exports.teamStats = function (teamId) {
 
         maxMinPoints = maxBenchedAndMaxPoints(response.history)
         chips = chipsPoints(response.chips, response.history)
-        cupData = stillInCup(response.leagues.cup,teamId)
+        cupData = stillInCup(response.leagues.cup, teamId)
         xxxx = totalTransfercost(response.history)
 
-        deferred.resolve({data: {maxMinPoints: maxMinPoints, chips: chips, totalTransfercost: xxxx,cupData:cupData}})
-        
+        deferred.resolve({data: {maxMinPoints: maxMinPoints, chips: chips, totalTransfercost: xxxx, cupData: cupData}})
+
     }, function (error) {
         console.log('error doing HTTP request to ' + options.uri);
         deferred.reject(error);
@@ -489,7 +490,7 @@ exports.teamStats = function (teamId) {
 }
 
 stillInCup = function (cupData, playerId) {
-    return cupData[cupData.length - 1] != undefined && (cupData[cupData.length - 1].winner == null || cupData[cupData.length - 1].winner == playerId)
+    return cupData[0] != undefined && (cupData[0].winner == null || cupData[0].winner == playerId)
 }
 
 maxBenchedAndMaxPoints = function (history) {
@@ -536,4 +537,61 @@ totalTransfercost = function (history) {
         sum = sum + e.event_transfers_cost;
     });
     return sum
+}
+
+exports.getCaptains = function (leagueId) {
+    var deferred = q.defer();
+    var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
+
+    rp(options).then(function (response) {
+    var players = response.standings.results
+
+        rp({uri: "https://fantasy.premierleague.com/drf/event/18/live", json: true}).then(function (response) {
+            var livePlayersPoints = response.elements
+            var allPromises = [];
+//
+            players.forEach(function (e) {
+
+                options = {uri: "https://fantasy.premierleague.com/drf/entry/" + e.entry + "/event/18/picks", json: true}
+                allPromises.push(new Promise(function (resolve, reject) {
+                    rp(options).then(function (response) {
+
+                        var footballPlayerId = response.picks.filter(function (self) {
+                            return self.is_captain
+                        })[0].element
+
+                        var x = {
+                            playerId: e.entry,
+                            teamName: e.player_name,
+                            captain: playerName(footballPlayerId),
+                            captainScore: playerScore(footballPlayerId, livePlayersPoints)
+                        }
+                        resolve(x)
+                    }, function (error) {
+                        reject(error)
+                    })
+                }))
+            })
+            if (allPromises.length == players.length) {
+                Promise.all(allPromises).then(function (values) {
+                    deferred.resolve(values)
+                });
+            }
+        }, function (error) {
+            deferred.reject(error);
+        })
+    }, function (error) {
+        deferred.reject(error);
+    })
+    return deferred.promise;
+}
+
+playerName = function (playerId) {
+    return playersList.filter(function (x) {
+        return x.id == playerId
+    })[0].web_name
+}
+
+function playerScore(playerId, liveScores) {
+    return liveScores[playerId].stats['total_points']
 }
