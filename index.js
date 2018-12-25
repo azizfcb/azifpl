@@ -10,7 +10,6 @@ var elementUrl = "https://fantasy.premierleague.com/drf/elements/"
 var playersIconesUrl = "https://platform-static-files.s3.amazonaws.com/premierleague/photos/players/110x140/p"
 var myTeamUrl = "https://fantasy.premierleague.com/drf/my-team/"
 var playersList = require('./players.json')
-
 var teams = {
     1: "Arsenal",
     2: "Bournemouth",
@@ -33,6 +32,7 @@ var teams = {
     19: "West Brom",
     20: "West Ham"
 }
+var transfersPerGameweek = {event: 0, data: []}
 // **************************************************** Basic features ******************************************************** //
 
 
@@ -489,64 +489,15 @@ exports.teamStats = function (teamId) {
     return deferred.promise;
 }
 
-stillInCup = function (cupData, playerId) {
-    return cupData[0] != undefined && (cupData[0].winner == null || cupData[0].winner == playerId)
-}
-
-maxBenchedAndMaxPoints = function (history) {
-
-    var maxPoints = [history.reduce(function (prev, current) {
-            return (prev.points > current.points) ? prev : current
-        })].map(function (x) {
-        return {value: x.points, event: x.event}
-    })[0]
-    var minPoints = [history.reduce(function (prev, current) {
-            return (prev.points < current.points) ? prev : current
-        })].map(function (x) {
-        return {value: x.points, event: x.event}
-    })[0]
-    var maxBenchedPoints = [history.reduce(function (prev, current) {
-            return (prev.points_on_bench > current.points_on_bench) ? prev : current
-        })].map(function (x) {
-        return {value: x.points_on_bench, event: x.event}
-    })[0]
-
-    return {
-        maxPoints: maxPoints,
-        minPoints: minPoints,
-        maxBenchedPoints: maxBenchedPoints,
-    }
-}
-
-chipsPoints = function (chips, history) {
-
-    var output = []
-    chips.forEach(function (e, v) {
-        output.push({
-            "chips": e.name,
-            "event": e.event,
-            "points": history.find(x => x.event === e.event).points
-        })
-    })
-    return output;
-}
-
-totalTransfercost = function (history) {
-    var sum = 0
-    history.forEach(function (e) {
-        sum = sum + e.event_transfers_cost;
-    });
-    return sum
-}
-
 exports.getCaptains = function (leagueId) {
     var deferred = q.defer();
     var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
-
     rp(options).then(function (response) {
-    var players = response.standings.results
+        var players = response.standings.results
 
         rp({uri: "https://fantasy.premierleague.com/drf/event/18/live", json: true}).then(function (response) {
+
+
             var livePlayersPoints = response.elements
             var allPromises = [];
 //
@@ -577,6 +528,10 @@ exports.getCaptains = function (leagueId) {
                     deferred.resolve(values)
                 });
             }
+
+
+
+
         }, function (error) {
             deferred.reject(error);
         })
@@ -586,7 +541,67 @@ exports.getCaptains = function (leagueId) {
     return deferred.promise;
 }
 
-playerName = function (playerId) {
+exports.getTransfersList = function (currentEvent,leagueId) {
+    
+    var deferred = q.defer();
+    var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
+    var allPromises = [];
+    rp(options).then(function (response) {
+        var players = response.standings.results
+        rp({uri: "https://fantasy.premierleague.com/drf/event/" + currentEvent + "/live", json: true}).then(function (response) {
+            var livePlayersPoints = response.elements
+            setCurrentEvent(currentEvent);
+            players.forEach(function (e) {
+                if (playerExistInTransferList(e.entry).length > 0) {
+                    allPromises.push(new Promise(function (resolve, reject) {
+                        var x = playerExistInTransferList(e.entry)[0]
+                        x.transfers = getTransfersName(x.transfers_list, livePlayersPoints)
+                        resolve(x)
+                    }))
+                } else {
+                    options = {uri: "https://fantasy.premierleague.com/drf/entry/" + e.entry + "/transfers", json: true}
+                    allPromises.push(new Promise(function (resolve, reject) {
+                        rp(options).then(function (response) {
+                            var gameWeekTransfers = response.history.filter(function (self) {
+                                return self.event == currentEvent // currentEvent
+                            })
+
+                            var x = {
+                                playerId: e.entry,
+                                teamName: e.player_name,
+                                transfers_list: gameWeekTransfers
+                            }
+
+                            transfersPerGameweek.data.push({
+                                playerId: e.entry,
+                                teamName: e.player_name,
+                                transfers_list: gameWeekTransfers
+                            })
+                            x.transfers = getTransfersName(gameWeekTransfers, livePlayersPoints)
+                            resolve(x)
+                        }, function (error) {
+                            resolve(error)
+                        })
+                    }))
+                }
+
+            })
+            if (allPromises.length == players.length) {
+                Promise.all(allPromises).then(function (values) {
+                    deferred.resolve(values)
+                });
+            }
+
+        }, function (error) {
+            deferred.reject(error);
+        })
+    }, function (error) {
+        deferred.reject(error);
+    })
+    return deferred.promise;
+}
+
+function playerName(playerId) {
     return playersList.filter(function (x) {
         return x.id == playerId
     })[0].web_name
@@ -594,4 +609,88 @@ playerName = function (playerId) {
 
 function playerScore(playerId, liveScores) {
     return liveScores[playerId].stats['total_points']
+}
+
+function stillInCup(cupData, playerId) {
+    return cupData[0] != undefined && (cupData[0].winner == null || cupData[0].winner == playerId)
+}
+
+function maxBenchedAndMaxPoints(history) {
+
+    var maxPoints = [history.reduce(function (prev, current) {
+            return (prev.points > current.points) ? prev : current
+        })].map(function (x) {
+        return {value: x.points, event: x.event}
+    })[0]
+    var minPoints = [history.reduce(function (prev, current) {
+            return (prev.points < current.points) ? prev : current
+        })].map(function (x) {
+        return {value: x.points, event: x.event}
+    })[0]
+    var maxBenchedPoints = [history.reduce(function (prev, current) {
+            return (prev.points_on_bench > current.points_on_bench) ? prev : current
+        })].map(function (x) {
+        return {value: x.points_on_bench, event: x.event}
+    })[0]
+
+    return {
+        maxPoints: maxPoints,
+        minPoints: minPoints,
+        maxBenchedPoints: maxBenchedPoints,
+    }
+}
+
+function chipsPoints(chips, history) {
+    var output = []
+    chips.forEach(function (e, v) {
+        output.push({
+            "chips": e.name,
+            "event": e.event,
+            "points": history.find(x => x.event === e.event).points
+        })
+    })
+    return output;
+}
+
+function totalTransfercost(history) {
+    var sum = 0
+    history.forEach(function (e) {
+        sum = sum + e.event_transfers_cost;
+    });
+    return sum
+}
+
+function getTransfers(history) {
+    var sum = 0
+    history.forEach(function (e) {
+        sum = sum + e.event_transfers_cost;
+    });
+    return sum
+}
+
+function getTransfersName(data, liveScores) {
+
+    return data.map(function (x, i) {
+        return {
+            order: i,
+            transfer_in: playerName(x.element_in),
+            transfer_in_points: playerScore(x.element_in, liveScores),
+            transfer_out: playerName(x.element_out),
+            transfer_out_points: playerScore(x.element_out, liveScores)
+
+        }
+    })
+}
+
+function playerExistInTransferList(playerId) {
+    return transfersPerGameweek.data.filter(function (x) {
+        return x.playerId == playerId
+    })
+}
+
+function  setCurrentEvent(currentEvent) {
+    if(transfersPerGameweek.event != currentEvent){
+        transfersPerGameweek.data = []
+    }
+    transfersPerGameweek.event = currentEvent
 }
