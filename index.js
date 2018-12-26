@@ -33,6 +33,7 @@ var teams = {
     20: "West Ham"
 }
 var transfersPerGameweek = {event: 0, data: []}
+var archive = []
 // **************************************************** Basic features ******************************************************** //
 
 
@@ -489,13 +490,13 @@ exports.teamStats = function (teamId) {
     return deferred.promise;
 }
 
-exports.getCaptains = function (leagueId) {
+exports.getCaptains = function (leagueId, currentEvent) {
     var deferred = q.defer();
     var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
     rp(options).then(function (response) {
         var players = response.standings.results
 
-        rp({uri: "https://fantasy.premierleague.com/drf/event/18/live", json: true}).then(function (response) {
+        rp({uri: "https://fantasy.premierleague.com/drf/event/" + currentEvent + "/live", json: true}).then(function (response) {
 
 
             var livePlayersPoints = response.elements
@@ -503,19 +504,30 @@ exports.getCaptains = function (leagueId) {
 //
             players.forEach(function (e) {
 
-                options = {uri: "https://fantasy.premierleague.com/drf/entry/" + e.entry + "/event/18/picks", json: true}
+                options = {uri: "https://fantasy.premierleague.com/drf/entry/" + e.entry + "/event/" + currentEvent + "/picks", json: true}
                 allPromises.push(new Promise(function (resolve, reject) {
+
                     rp(options).then(function (response) {
 
-                        var footballPlayerId = response.picks.filter(function (self) {
+                        var captainAndViceCaptain = response.picks.filter(function (self) {
+                            return self.is_captain || self.is_vice_captain
+                        })
+
+                        var captainId = captainAndViceCaptain.filter(function (self) {
                             return self.is_captain
+                        })[0].element
+
+                        var viceCaptainId = captainAndViceCaptain.filter(function (self) {
+                            return self.is_vice_captain
                         })[0].element
 
                         var x = {
                             playerId: e.entry,
                             teamName: e.player_name,
-                            captain: playerName(footballPlayerId),
-                            captainScore: playerScore(footballPlayerId, livePlayersPoints)
+                            captain: playerName(captainId),
+                            viceCaptain: playerName(viceCaptainId),
+                            captainScore: playerScore(captainId, livePlayersPoints),
+                            viceCaptainScore: playerScore(viceCaptainId, livePlayersPoints)
                         }
                         resolve(x)
                     }, function (error) {
@@ -536,13 +548,15 @@ exports.getCaptains = function (leagueId) {
             deferred.reject(error);
         })
     }, function (error) {
+        console.log('xxxxxxxx')
+
         deferred.reject(error);
     })
     return deferred.promise;
 }
 
-exports.getTransfersList = function (currentEvent,leagueId) {
-    
+exports.getTransfersList = function (currentEvent, leagueId) {
+
     var deferred = q.defer();
     var LeagueUrl = "https://fantasy.premierleague.com/drf/leagues-classic-standings/" + leagueId, arr = [], options = {uri: LeagueUrl, json: true};
     var allPromises = [];
@@ -587,6 +601,7 @@ exports.getTransfersList = function (currentEvent,leagueId) {
 
             })
             if (allPromises.length == players.length) {
+
                 Promise.all(allPromises).then(function (values) {
                     deferred.resolve(values)
                 });
@@ -595,6 +610,11 @@ exports.getTransfersList = function (currentEvent,leagueId) {
         }, function (error) {
             deferred.reject(error);
         })
+
+
+        if (currentEvent < 18) {
+
+        }
     }, function (error) {
         deferred.reject(error);
     })
@@ -689,7 +709,7 @@ function playerExistInTransferList(playerId) {
 }
 
 function  setCurrentEvent(currentEvent) {
-    if(transfersPerGameweek.event != currentEvent){
+    if (transfersPerGameweek.event != currentEvent) {
         transfersPerGameweek.data = []
     }
     transfersPerGameweek.event = currentEvent
